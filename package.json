@@ -1,0 +1,46 @@
+{
+  "name": "newagent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && node bin/newagent.mjs",
+    "build": "tsc && tsc -p tsconfig.web.json && vite build",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json && tsc -p tsconfig.web.json",
+    "test": "tsx --test tests/*.test.ts",
+    "start": "node bin/newagent.mjs",
+    "setup": "tsx src/eval/setup.ts && tsx src/eval/setup-eval.ts",
+    "eval:workflow": "tsx src/eval/evaluate.ts workflow",
+    "eval:direct": "tsx src/eval/evaluate.ts direct",
+    "test:fixtures": "tsx src/eval/validate-fixtures.ts",
+    "start:web": "node dist/app-server/server.js",
+    "eval:real:setup": "node scripts/eval/setup-real-eval.mjs",
+    "eval:real:run": "node scripts/eval/run-real-eval.mjs",
+    "eval:real:audit": "node scripts/eval/audit-real-eval.mjs",
+    "eval:real:report": "node scripts/eval/report-real-eval.mjs",
+    "verify": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.99.2",
+    "@fastify/static": "10.1.5",
+    "better-sqlite3": "13.0.3",
+    "fastify": "5.12.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typebox": "1.3.27",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "26.6.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "prettier": "3.9.9",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.1"
+  },
+  "bin": {
+    "newagent": "bin/newagent.mjs"
+  }
+}
