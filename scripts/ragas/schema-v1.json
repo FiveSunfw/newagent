@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "newagent-ragas-jsonl-v1",
+  "title": "NewAgent Ragas evaluation sample",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "sample_id",
+    "kind",
+    "question",
+    "retrieved_contexts",
+    "reference_answer",
+    "model_answer",
+    "messages",
+    "tool_messages",
+    "task_id",
+    "conversation_id",
+    "role",
+    "source_revision",
+    "config_hash",
+    "reference_review_status"
+  ],
+  "properties": {
+    "schema_version": {"const": "newagent-ragas-jsonl-v1"},
+    "sample_id": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["retrieval_qa", "agent_trajectory", "tool_task"]},
+    "question": {"type": "string"},
+    "retrieved_contexts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rank", "path", "symbol", "start_line", "end_line", "content", "content_sha256"],
+        "properties": {
+          "rank": {"type": "integer", "minimum": 1},
+          "path": {"type": "string"},
+          "symbol": {"type": ["string", "null"]},
+          "start_line": {"type": ["integer", "null"], "minimum": 1},
+          "end_line": {"type": ["integer", "null"], "minimum": 1},
+          "content": {"type": ["string", "null"]},
+          "content_sha256": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "reference_answer": {"type": ["string", "null"]},
+    "reference_sources": {"type": "array"},
+    "model_answer": {"type": ["string", "null"]},
+    "messages": {"type": "array"},
+    "tool_messages": {"type": "array"},
+    "task_id": {"type": ["string", "null"]},
+    "conversation_id": {"type": ["string", "null"]},
+    "role": {"type": ["string", "null"]},
+    "roles": {"type": "array", "items": {"type": "string"}},
+    "session_links": {"type": "array"},
+    "source_revision": {"type": ["string", "null"]},
+    "source_revision_hashes": {"type": "object"},
+    "config_hash": {"type": "string"},
+    "input_hash": {"type": ["string", "null"]},
+    "reference_review_status": {
+      "enum": ["ai_source_checked_unreviewed", "human_reviewed", "not_applicable"]
+    },
+    "trace_status": {"enum": ["complete", "incomplete", "not_applicable", "pending"]},
+    "trace_notes": {"type": "array", "items": {"type": "string"}},
+    "labels_after_score": {"type": ["object", "null"]},
+    "tool_call_reference": {"type": "array"}
+  },
+  "additionalProperties": true
+}

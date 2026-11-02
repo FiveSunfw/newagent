@@ -11,6 +11,7 @@ import { Workflow } from "../core/workflow.js";
 import { PiAgent } from "../model-provider/pi.js";
 import { acquireProcessLock } from "../state/process-lock.js";
 import { taskInput, type Task } from "../protocol/types.js";
+import { memoryInput } from "../memory/service.js";
 const actions = [
   "new",
   "list",
@@ -93,12 +94,27 @@ export default function deliveryExtension(pi: ExtensionAPI) {
     }
   }
   pi.on("session_start", async (_event, ctx) => {
+    if (ctx.hasUI) {
+      ctx.ui.setHeader((_tui, theme) => ({
+        render(width: number) {
+          return [
+            theme.fg("accent", "NewAgent".slice(0, width)),
+            theme.fg("dim", "Type a request | /delivery help".slice(0, width)),
+          ];
+        },
+        invalidate() {
+          // The header is rendered directly and keeps no layout cache.
+        },
+      }));
+      ctx.ui.setTitle("NewAgent");
+    }
     try {
       mkdirSync(path.join(root, "cache", "tmp"), { recursive: true });
       process.env.NEWAGENT_TEMP = path.join(root, "cache", "tmp");
       release = acquireProcessLock(root);
       store = new Store(path.join(root, "data"));
       flow = new Workflow(root, store, new PiAgent(root));
+      pi.setActiveTools(["delivery_agent", "memory_agent"]);
       selected = undefined;
       ctx.ui.setStatus("delivery", "研发交付 · /delivery");
       ctx.ui.notify(
@@ -107,6 +123,8 @@ export default function deliveryExtension(pi: ExtensionAPI) {
       );
       timer = setInterval(() => {
         try {
+          // The upstream UI restores its own title on session changes.
+          if (ctx.hasUI) ctx.ui.setTitle("NewAgent");
           refresh(ctx);
         } catch (e) {
           ctx.ui.notify(e instanceof Error ? e.message : String(e), "error");
@@ -126,16 +144,72 @@ export default function deliveryExtension(pi: ExtensionAPI) {
     flow = undefined;
   });
 
+  pi.on("tool_call", async (event) =>
+    ["delivery_agent", "memory_agent"].includes(event.toolName)
+      ? undefined
+      : {
+          block: true,
+          reason:
+            "Host tools disabled in delivery mode; use the task execution boundary",
+        },
+  );
   pi.on("before_agent_start", async (event) => ({
     systemPrompt:
       event.systemPrompt +
-      "\n你是 NewAgent 研发协作助手。开发由当前完整原生 Pi 会话负责，不启动另一个开发 Agent。需要交付追踪时先调用 delivery_agent inspect，根据用户上下文选择仓库，歧义时询问；提炼需求和验收条件后 create，再 prepare 获取隔离 workspace 和分支。无需用户输入 /delivery。之后用原生 read/edit/write/bash 在该 workspace 开发和补充测试，每个命令明确工作目录；不得修改原仓库或任务库。完成后调用 validate，运行静态检查、功能测试、独立工程质量 Review。检查失败或 Review 阻塞时，在当前 Pi 会话修复该 workspace，再 validate；最多三轮自动返修，仍失败交给用户。不要削弱测试或检查配置来通过。Review 关注可读性、重复冗余、职责和模块边界、复用现有模块、需求所需的扩展性；避免过度设计。没有静态检查配置时由 AI 审查静态风险和代码规范，明确这是 AI 判断而非编译器/lint 通过，不因此阻塞流程。ready_for_pr 表示当前版本检查完成，不等于已发布。sync 同步 CI；publish 必须经界面确认。",
+      "\n你是 NewAgent 研发协作助手。主会话使用 delivery_agent 编排，memory_agent 管理长期记忆，不使用宿主文件或 shell 工具。用户明确表达长期代码风格、偏好或要求记住经验时调用 memory_agent；一次性需求不自动提升为长期偏好，不从模型自己的代码推断用户习惯。项目记忆默认 project 并指定已配置 profileId，只有用户明确表示所有项目通用时使用 user 范围。可保存未经测试的经验，但标注 hypothesis 或 observed，不能假称验证成功。用户要求纠正或忘记时 update/forget。记忆不覆盖当前需求、仓库规范、权限和验收。先 inspect 选择仓库，再 create 提炼需求和验收条件，再 run 调用受控开发、检查与独立只读 Review。无需用户输入 /delivery。Docker 不可用时停止；trusted-host 仅用于明确确认的可信仓库。最多三轮返修。status 查看真实证据。publish 必须经界面确认。",
   }));
+  pi.registerTool({
+    name: "memory_agent",
+    label: "长期记忆",
+    description:
+      "Mem0 长期记忆：remember 保存用户代码风格/偏好或项目经验；同一偏好使用稳定 key（如 style.indent、style.comments）以更新旧值。search/list 查看；update 纠正；forget 删除。项目范围必须指定已配置 profileId；不传用户身份。",
+    parameters: Type.Object({
+      action: Type.Union(
+        ["remember", "search", "list", "update", "forget"].map((action) =>
+          Type.Literal(action),
+        ),
+      ),
+      scope: Type.Optional(
+        Type.Union([Type.Literal("user"), Type.Literal("project")]),
+      ),
+      profileId: Type.Optional(Type.String()),
+      kind: Type.Optional(
+        Type.Union([Type.Literal("preference"), Type.Literal("experience")]),
+      ),
+      status: Type.Optional(
+        Type.Union(
+          ["declared", "inferred", "observed", "hypothesis"].map((value) =>
+            Type.Literal(value),
+          ),
+        ),
+      ),
+      text: Type.Optional(Type.String()),
+      query: Type.Optional(Type.String()),
+      key: Type.Optional(Type.String()),
+      memoryId: Type.Optional(Type.String()),
+    }),
+    async execute(_id, params) {
+      const input = memoryInput.parse(params),
+        current = state();
+      if (
+        input.scope === "project" &&
+        !current.flow
+          .profiles()
+          .some((profile) => profile.id === input.profileId)
+      )
+        throw Error("Unknown project profile");
+      const result = await current.flow.memory.execute(input);
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result) }],
+        details: {},
+      };
+    },
+  });
   pi.registerTool({
     name: "delivery_agent",
     label: "研发交付",
     description:
-      "从自然语言需求创建并执行研发任务，开发使用当前原生 Pi 会话。inspect 查看仓库；create 创建；prepare 准备隔离 workspace；validate 执行静态检查、测试和只读工程质量审查，失败后由当前 Pi 修复；run 是 validate 的兼容别名；status 查看证据；pause 暂停；sync 同步 CI；publish 确认后推送 PR。",
+      "从自然语言需求创建研发任务。inspect 查看仓库；create 创建；run 使用执行边界开发、验证和独立 Review；prepare 仅准备；validate 仅验证；status 查看证据；pause 暂停；sync 同步 CI；publish 确认后推送 PR。",
     parameters: Type.Object({
       action: Type.Union(
         [
@@ -164,14 +238,12 @@ export default function deliveryExtension(pi: ExtensionAPI) {
           profiles: current.flow
             .profiles()
             .map((p) => ({ id: p.id, source: p.source, base: p.base })),
-          tasks: current.store
-            .list()
-            .map((t) => ({
-              id: t.id,
-              profileId: t.profileId,
-              requirement: t.requirement,
-              status: t.status,
-            })),
+          tasks: current.store.list().map((t) => ({
+            id: t.id,
+            profileId: t.profileId,
+            requirement: t.requirement,
+            status: t.status,
+          })),
         };
       } else if (params.action === "create") {
         const task = current.flow.create(taskInput.parse(params));
@@ -186,7 +258,11 @@ export default function deliveryExtension(pi: ExtensionAPI) {
           current.flow.run(
             id,
             params.feedback,
-            params.action === "prepare" ? "prepare" : "validate",
+            params.action === "prepare"
+              ? "prepare"
+              : params.action === "run"
+                ? "legacy"
+                : "validate",
           );
           const cancel = () => current.flow.pause(id);
           signal?.addEventListener("abort", cancel, { once: true });
@@ -230,8 +306,8 @@ export default function deliveryExtension(pi: ExtensionAPI) {
             : "ai_review",
           nextStep:
             params.action === "prepare"
-              ? "Use native Pi tools in task.workspace, then validate"
-              : "Inspect checks/review; fix in current Pi session and validate again if blocked",
+              ? "Call run to develop through the task execution boundary"
+              : "Inspect checks/review; call run with feedback if blocked",
         };
       }
       refresh(ctx);
@@ -317,14 +393,18 @@ export default function deliveryExtension(pi: ExtensionAPI) {
             current.flow.run(
               selected,
               undefined,
-              action === "prepare" ? "prepare" : "validate",
+              action === "prepare"
+                ? "prepare"
+                : action === "run"
+                  ? "legacy"
+                  : "validate",
             );
             ctx.ui.notify("已开始执行，进度显示在终端下方。", "info");
             break;
           case "feedback": {
             const feedback = await ctx.ui.editor("需要开发者处理的意见");
             if (feedback?.trim())
-              current.flow.run(selected, feedback, "validate");
+              current.flow.run(selected, feedback, "legacy");
             break;
           }
           case "pause":

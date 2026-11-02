@@ -24,6 +24,7 @@ export function execute(
   timeoutMs = 600000,
   log?: string,
   environment: Record<string, string> = {},
+  input?: string,
 ): Promise<Execution> {
   return new Promise((resolve, reject) => {
     let stdout = "",
@@ -45,6 +46,11 @@ export function execute(
       if (/KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(key))
         delete env[key as keyof typeof env];
     }
+    // Credential filtering removes GIT_CONFIG_KEY_n; retaining COUNT breaks Git.
+    for (const key of Object.keys(env)) {
+      if (/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)$/.test(key))
+        delete env[key as keyof typeof env];
+    }
     Object.assign(env, environment, {
       GIT_TERMINAL_PROMPT: "0",
       GCM_INTERACTIVE: "Never",
@@ -54,13 +60,14 @@ export function execute(
       env,
       shell: false,
       windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
-    const collect = (kind: "stdout" | "stderr", data: Buffer) => {
-      const text = data.toString();
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    const collect = (kind: "stdout" | "stderr", text: string) => {
       if (log) appendFileSync(log, text);
-      if (kind === "stdout") stdout = (stdout + text).slice(-200000);
-      else stderr = (stderr + text).slice(-200000);
+      if (kind === "stdout") stdout = (stdout + text).slice(-2000000);
+      else stderr = (stderr + text).slice(-2000000);
     };
     child.stdout.on("data", (d) => collect("stdout", d));
     child.stderr.on("data", (d) => collect("stderr", d));
@@ -82,6 +89,15 @@ export function execute(
       clearTimeout(timer);
       signal?.removeEventListener("abort", abort);
     };
+    child.stdin.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code !== "EPIPE" && !done) {
+        done = true;
+        cleanup();
+        kill();
+        reject(error);
+      }
+    });
+    child.stdin.end(input);
     child.on("error", (err) => {
       if (!done) {
         done = true;

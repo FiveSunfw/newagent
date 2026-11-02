@@ -9,6 +9,7 @@ import { Store } from "../state/store.js";
 import { PiAgent } from "../model-provider/pi.js";
 import { Workflow } from "../core/workflow.js";
 import { taskInput } from "../protocol/types.js";
+import { memoryInput } from "../memory/service.js";
 const root = path.resolve(
   process.env.NEWAGENT_ROOT ??
     path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", ".."),
@@ -52,6 +53,15 @@ app.get("/api/profiles", async () =>
   })),
 );
 app.get("/api/tasks", async () => store.list());
+app.post("/api/memory", async (req) => {
+  const input = memoryInput.parse(req.body);
+  if (
+    input.scope === "project" &&
+    !workflow.profiles().some((profile) => profile.id === input.profileId)
+  )
+    throw Error("Unknown project profile");
+  return workflow.memory.execute(input);
+});
 app.post("/api/tasks", async (req, reply) =>
   reply.code(201).send(workflow.create(taskInput.parse(req.body))),
 );

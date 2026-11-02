@@ -1,0 +1,12 @@
+{
+  "version": "repository-ragas-agent-references-v1",
+  "reviewStatus": "ai_source_checked_unreviewed",
+  "goals": {
+    "mitt-dispatch-snapshot": "Satisfy the fixed behavior: dispatch over a snapshot of the event-specific handler list so removing a handler during emit does not skip callbacks already scheduled for that emit; invoke wildcard handlers after event-specific handlers and pass the type and payload.",
+    "mitt-once-integration": "Add and export a once helper from the public index. Its wrapper must unsubscribe from the same event type before invoking the user handler, so re-entrant emit does not invoke it a second time.",
+    "stringify-key-comparator": "Serialize object keys deterministically by default, honor the comparator's key/value record arguments, support the function-form options API, and preserve nested-object serialization.",
+    "stringify-cycle-recovery": "Throw TypeError for a circular reference by default, emit the documented __cycle__ marker when cycles:true, and continue serializing shared non-cyclic objects correctly.",
+    "dlv-null-traversal": "Return the provided default instead of throwing when an object or an intermediate path value is null or missing; preserve empty paths and successful deep lookup.",
+    "dlv-options-integration": "Export lookupWithOptions from the public index, forward options.defaultValue to dlv, preserve present falsy values, and leave the existing default export behavior intact."
+  }
+}

@@ -7,6 +7,8 @@ web-dist/
 *.db*
 *.log
 coverage/
+__pycache__/
+*.py[cod]
 # Runtime configuration and credentials belong outside app.
 data/
 cache/

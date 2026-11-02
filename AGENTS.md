@@ -3,7 +3,7 @@
 - 产品代码与 npm 依赖在 app；新增下载在 tools/upstream；所有缓存与运行数据在 E:\newagent 下。
 - 使用本机 Node 22.23.3 和 npm，依赖版本由 package-lock.json 固定。
 - 开发/Review 调用 Pi SDK；任务状态与检查证据由编排程序管理，不能根据模型文字伪造成功。
-- 默认入口为 完整 Pi 原生 TUI（newagent 命令，直接用自然语言；/delivery 是可选入口）；可选 Web API 只监听本机；仓库配置和命令属于本机可信管理员配置。当前未提供容器级执行隔离。
+- 默认入口保留 Pi 原生 TUI（newagent 命令，直接用自然语言；/delivery 是可选入口）；主会话只做交付编排，开发与 Review 使用受控会话。默认任务使用 Docker Linux 快照边界，不可用时停止；Windows fixture 显式启用 trusted-host，不计入沙箱成绩。可选 Web API 只监听本机；仓库配置和检查命令由可信管理员提供。当前限制见 docs/SANDBOX.md。
 - 检查、Review、PR 与发布评估关联实际代码版本。代码变更后重新验证。
 - 推送与创建 PR 需要终端或 Web 界面明确确认；合并和正式发布由人操作。
 - 原 E:\valorant-analytics 只作为参考，实际任务操作独立副本，保留原有改动及 Riot 业务约束。

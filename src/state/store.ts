@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Task, CheckResult } from "../protocol/types.js";
+import { redact } from "./redaction.js";
 export class Store {
   readonly db: Database.Database;
   constructor(root: string) {
@@ -37,7 +38,7 @@ export class Store {
   event(id: string, kind: string, body: unknown) {
     this.db
       .prepare("INSERT INTO events(task_id,at,kind,body) VALUES(?,?,?,?)")
-      .run(id, new Date().toISOString(), kind, JSON.stringify(body));
+      .run(id, new Date().toISOString(), kind, JSON.stringify(redact(body)));
   }
   events(id: string) {
     return (

@@ -76,6 +76,7 @@ const profiles = [
     id: "orders-fixture",
     source: fixture,
     base: "HEAD",
+    execution: { mode: "trusted-host", acknowledged: true },
     checks: [
       command("typecheck", [
         tsc,
@@ -122,6 +123,7 @@ const profiles = [
     id: "valorant-analytics",
     source: "https://github.com/FiveSunfw/valorant-analytics.git",
     base: "origin/HEAD",
+    execution: { mode: "trusted-host", acknowledged: true },
     checks: [
       command("check", [
         path.join(

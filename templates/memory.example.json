@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "userId": "local-user",
+  "collection": "newagent_memory_v1",
+  "model": "deepseek-flash",
+  "baseUrl": "https://api.deepseek.com",
+  "timeoutMs": 120000
+}

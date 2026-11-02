@@ -1,0 +1,9 @@
+{
+  "name": "newagent-mem0-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "mem0ai": "3.3.1"
+  }
+}

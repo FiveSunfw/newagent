@@ -28,7 +28,9 @@ npm start
 
 inspect → create → prepare → 原生 Agent 修改隔离工作区 → validate → 检查与独立 Review → 最多三轮返修 → 人工确认 PR → sync CI/合并版本。
 
-默认终端使用当前原生 Pi 会话开发；Web 和旧评测保留 legacy 流程。二者共享任务库，不能同时运行。可选 Web 入口：./start-web.ps1，仅监听 127.0.0.1:4780。
+默认终端的 Pi 会话负责需求与编排，通过受控开发会话执行修改；主会话的宿主文件、搜索与 shell 工具已禁用。Web 与终端共享任务库，不能同时运行。可选 Web 入口：./start-web.ps1，仅监听 127.0.0.1:4780。
+
+新 profile 默认 `execution: {"mode":"docker"}`。需要 Linux Docker daemon 与 `../data/sandbox.json` 中固定的 sha256 镜像 ID；未配置或 Docker 不可用时停止，不回退宿主。沙箱配置格式与当前验收范围见 [执行边界](docs/SANDBOX.md)。旧 Windows fixture 通过显式 `execution: {"mode":"trusted-host","acknowledged":true}` 运行，不计入容器隔离成绩。
 
 ## 目录
 
@@ -69,10 +71,10 @@ verify 执行类型检查、行为测试和生产构建，不调用真实模型�
 
 ## 边界与证据
 
-- 当前为本机、单用户、可信仓库工具。Worktree/副本隔离不等于容器沙箱，原生终端拥有本机工具能力。
+- 当前为本机、单用户工具。Docker 任务的读写、文本搜索、配置检查经过脱敏任务快照；Review 挂载只读，任务禁网。源码 checkout 与执行快照分开，Git 和 GitHub 操作由宿主编排层负责。宿主管理员与 Docker daemon 属于信任边界。
 - 推送和创建 PR 需要界面确认；合并由人执行，不自动生产发布。
-- 已有真实任务和三任务对照报告，样本不足以推断总体成功率或效率优势；旧版对照不代表当前终端版本。
-- 研发资料 RAG、Issue 分诊和专用 CI 排障尚未实现。
+- 旧版三任务对照样本不足以推断总体效果。当前本地 Qwen3 1.7B 校准为 0/9 功能通过；正式对照因Docker后端中断尚未完成，不能声称多Agent或RAG带来提升。见[评测记录](docs/reports/UPGRADE-VALIDATION.md)、[部分对照报告](/E:/newagent/data/repository-eval/formal-v2/report.md)和[Docker中断记录](/E:/newagent/data/repository-eval/formal-v3/report.md)。
+- 仓库 RAG 与本地 MCP 已实现并通过协议测试；本地 Qwen 生成模型和真实 Embedding 已部署，固定 12 任务对照与 30 问检索专项使用独立命令运行。结果以运行报告为准，人工检索标注和 Review 误报判定尚待确认；Issue 分诊和专用 CI 排障未实现。见 [本地评测](docs/LOCAL-EVALUATION.md)、[检索与 MCP](docs/RETRIEVAL-MCP.md) 和 [升级验证记录](docs/reports/UPGRADE-VALIDATION.md)。
 - 固定依赖的历史 audit 风险与实验细节保留在开发记录中，未宣称安全审计通过。
 
-文档：[架构与配置](docs/ARCHITECTURE.md) · [评测说明](scripts/eval/README.md) · [真实对照报告](docs/reports/REAL-EVAL-REPORT.md) · [新版单任务](docs/reports/NATIVE-QUALITY-RUN.md) · [交接记录](docs/HANDOFF.md) · [历史开发记录](docs/archive/development-notes.md)
+文档：[当前架构](docs/UPGRADE-ARCHITECTURE.md) · [Mem0 长期记忆](docs/MEMORY.md) · [历史架构与配置](docs/ARCHITECTURE.md) · [评测说明](scripts/eval/README.md) · [真实对照报告](docs/reports/REAL-EVAL-REPORT.md) · [新版单任务](docs/reports/NATIVE-QUALITY-RUN.md) · [交接记录](docs/HANDOFF.md) · [历史开发记录](docs/archive/development-notes.md)

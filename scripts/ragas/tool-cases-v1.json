@@ -1,0 +1,49 @@
+{
+  "version": "newagent-ragas-tool-cases-v1",
+  "cases": [
+    {
+      "id": "tool-read-file",
+      "repository": "mitt",
+      "question": "Use exactly one read_file tool call with path src/index.ts. Read the file and return the exact declaration of EventHandlerMap. Do not call any other tool.",
+      "reference_answer": "The task is complete when read_file has read src/index.ts and the returned text contains the EventHandlerMap declaration.",
+      "source_file": "src/index.ts",
+      "source_symbol": "EventHandlerMap",
+      "expected_tool_calls": [
+        {"name": "read_file", "args": {"path": "src/index.ts"}}
+      ],
+      "expected_state": {"contains": "export type EventHandlerMap<Events extends Record<EventType, unknown>>"}
+    },
+    {
+      "id": "tool-search-symbol",
+      "repository": "fast-json-stable-stringify",
+      "question": "Use exactly one search_repository tool call with query function stringify. Then report the relative file and line where the stringify function is declared. Do not call any other tool.",
+      "reference_answer": "The task is complete when search_repository was called with query function stringify and returns the declaration in index.js.",
+      "source_file": "index.js",
+      "source_symbol": "stringify",
+      "expected_tool_calls": [
+        {"name": "search_repository", "args": {"query": "function stringify"}}
+      ],
+      "expected_state": {"search_path": "index.js", "search_query": "function stringify"}
+    },
+    {
+      "id": "tool-read-then-edit",
+      "repository": "dlv",
+      "question": "First call read_file with path index.js. Then call replace_text exactly once with path index.js, before equal to the exact function declaration below, and after equal to the comment followed by that same declaration. Make no other edits.\nBefore: export default function dlv(obj, key, def, p, undef) {\nAfter: /** Resolve a nested value from a string or array path. */\nexport default function dlv(obj, key, def, p, undef) {",
+      "reference_answer": "The task is complete when index.js has been read and the specified JSDoc line is inserted immediately before the existing dlv declaration without changing behavior.",
+      "source_file": "index.js",
+      "source_symbol": "dlv",
+      "expected_tool_calls": [
+        {"name": "read_file", "args": {"path": "index.js"}},
+        {
+          "name": "replace_text",
+          "args": {
+            "path": "index.js",
+            "before": "export default function dlv(obj, key, def, p, undef) {",
+            "after": "/** Resolve a nested value from a string or array path. */\nexport default function dlv(obj, key, def, p, undef) {"
+          }
+        }
+      ],
+      "expected_state": {"contains": "/** Resolve a nested value from a string or array path. */\nexport default function dlv"}
+    }
+  ]
+}

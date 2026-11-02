@@ -6,6 +6,35 @@ export const commandSchema = z.object({
   timeoutMs: z.number().int().positive().max(600000).default(600000),
 });
 export const profileSchema = z.object({
+  strategy: z
+    .enum(["single-no-rag", "single-rag", "adaptive-rag"])
+    .default("adaptive-rag"),
+  reflexion: z.boolean().default(false),
+  runLimits: z
+    .object({
+      tools: z.number().int().positive().max(100).optional(),
+      repairs: z.number().int().nonnegative().max(3).optional(),
+      durationMs: z.number().int().positive().max(1800000).optional(),
+    })
+    .optional(),
+  execution: z
+    .discriminatedUnion("mode", [
+      z.object({
+        mode: z.literal("docker"),
+        dependencies: z
+          .object({
+            volume: z.string().regex(/^newagent-deps-[a-f0-9]{32}$/),
+            lockHash: z.string().regex(/^[a-f0-9]{64}$/),
+            image: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+          })
+          .optional(),
+      }),
+      z.object({
+        mode: z.literal("trusted-host"),
+        acknowledged: z.literal(true),
+      }),
+    ])
+    .default({ mode: "docker" }),
   id: z.string(),
   source: z.string(),
   base: z.string().default("HEAD"),
@@ -51,6 +80,53 @@ export const reviewSchema = z.object({
   verdict: z.enum(["pass", "changes_requested"]),
 });
 export type Review = z.infer<typeof reviewSchema>;
+export const retrievalExpertSchema = z.object({
+  summary: z.string(),
+  files: z
+    .array(
+      z.object({
+        path: z.string(),
+        symbol: z.string(),
+        startLine: z.number().int().positive(),
+        endLine: z.number().int().positive(),
+        reason: z.string(),
+      }),
+    )
+    .max(20),
+  gaps: z.array(z.string()).max(20),
+});
+export const reflexionMemorySchema = z.object({
+  diagnosis: z.string().min(1).max(320),
+  evidenceIds: z
+    .array(z.string().regex(/^O[1-4]$/))
+    .min(1)
+    .max(4),
+  lessons: z.array(z.string().min(1).max(180)).min(1).max(2),
+  doNotRepeat: z.array(z.string().min(1).max(180)).max(2),
+  nextSteps: z.array(z.string().min(1).max(180)).max(2),
+  uncertainty: z.string().max(160),
+});
+export const reflexionObservationSchema = z.object({
+  id: z.string().regex(/^O[1-4]$/),
+  source: z.enum([
+    "evaluator",
+    "workspace",
+    "tool_failure",
+    "review",
+    "assistant_summary",
+  ]),
+  fact: z.string().min(1).max(400),
+});
+export const reflexionExperienceSchema = z.object({
+  trial: z.number().int().positive(),
+  sourceRevision: z.string().min(1).max(128),
+  createdAt: z.string().datetime(),
+  observations: z.array(reflexionObservationSchema).min(1).max(4),
+  reflection: reflexionMemorySchema,
+});
+export type ReflexionMemory = z.infer<typeof reflexionMemorySchema>;
+export type ReflexionObservation = z.infer<typeof reflexionObservationSchema>;
+export type ReflexionExperience = z.infer<typeof reflexionExperienceSchema>;
 export type Status =
   | "queued"
   | "preparing"
@@ -65,6 +141,9 @@ export type Status =
   | "blocked"
   | "paused";
 export interface Task {
+  verificationFingerprint?: string;
+  budget?: { startedAt: number; tools: number; repairs: number };
+  reflections?: ReflexionExperience[];
   id: string;
   profileId: string;
   requirement: string;
@@ -78,6 +157,7 @@ export interface Task {
   review?: Review;
   pr?: number;
   error?: string;
+  errorType?: "cancelled" | "timeout" | "budget" | "validation" | "execution";
   assessment?: {
     verdict: "conditions_met" | "blocked" | "insufficient_evidence";
     revision: string;
@@ -87,6 +167,7 @@ export interface Task {
   updatedAt: string;
 }
 export interface CheckResult {
+  verificationFingerprint?: string;
   name: string;
   revision: string;
   exitCode: number | null;
